@@ -15,16 +15,16 @@ class ImageEditorCubit extends Cubit<ImageEditorState> {
   ImageEditorCubit()
       : super(ImageEditorUpdated(textPosition: Offset(0, 0), text: ''));
 
-  updateImagePath(String path) {
+  updateImagePath(String? path) {
     emit(state.copyWith(imagePath: path));
   }
 
   updateTextPosition(Offset offset) {
-    emit(state.copyWith(textPosition: offset));
+    emit(state.copyWith(textPosition: offset,imagePath: state.imagePath));
   }
 
   updateText(String text) {
-    emit(state.copyWith(text: text));
+    emit(state.copyWith(text: text,imagePath: state.imagePath));
   }
 
   shareImage(Uint8List? image) async {

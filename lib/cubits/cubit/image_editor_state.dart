@@ -8,7 +8,7 @@ abstract class ImageEditorState extends Equatable {
   ImageEditorState copyWith(
       {String? imagePath, String? text, Offset? textPosition}) {
     return ImageEditorUpdated(
-        imagePath: imagePath ?? this.imagePath,
+        imagePath: imagePath ,
         textPosition: textPosition ?? this.textPosition,
         text: text ?? this.text);
   }

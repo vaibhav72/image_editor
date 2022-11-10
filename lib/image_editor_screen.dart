@@ -24,38 +24,73 @@ class _ImageEditorState extends State<ImageEditor>
   ScreenshotController screenshotController = ScreenshotController();
   double left = 0;
   double top = 0;
+  bool enableText = false;
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => ImageEditorCubit(),
-      child: Container(
-          child: Scaffold(
-        floatingActionButton: BlocBuilder<ImageEditorCubit, ImageEditorState>(
-          builder: (context, state) {
-            if (state.imagePath != null) {
-              return FloatingActionButton(onPressed: () async {
-                FocusScope.of(context).requestFocus(FocusNode());
+    return Scaffold(
+      floatingActionButton: BlocBuilder<ImageEditorCubit, ImageEditorState>(
+        builder: (context, state) {
+          if (state.imagePath != null) {
+            return FloatingActionButton(
+                child: Icon(Icons.share),
+                onPressed: () async {
+                  FocusScope.of(context).requestFocus(FocusNode());
 
-                await screenshotController
-                    .capture(delay: const Duration(milliseconds: 10))
-                    .then((Uint8List? image) async {
-                  context.read<ImageEditorCubit>().shareImage(image);
+                  await screenshotController
+                      .capture(delay: const Duration(milliseconds: 100))
+                      .then((Uint8List? image) async {
+                    context.read<ImageEditorCubit>().shareImage(image);
+                  });
                 });
-              });
-            }
-            return SizedBox();
-          },
-        ),
-        appBar: AppBar(),
-        body: Container(
-          // color: Colors.red,
-          height: double.maxFinite,
-          width: double.maxFinite,
-          child: Screenshot(
-            controller: screenshotController,
-            child: Stack(
-              children: [
-                const Center(child: ImageWidget()),
+          }
+          return SizedBox();
+        },
+      ),
+      resizeToAvoidBottomInset: false,
+      appBar: AppBar(
+        title: Text("Editor"),
+        actions: [
+          IconButton(
+              onPressed: () {
+                setState(() {
+                  enableText = !enableText;
+                });
+              },
+              icon: enableText
+                  ? CircleAvatar(
+                      backgroundColor: Colors.white,
+                      child: Icon(
+                        Icons.abc_rounded,
+                        color: Colors.teal,
+                      ),
+                    )
+                  : Icon(
+                      Icons.abc_rounded,
+                      size: 30,
+                    )),
+          BlocBuilder<ImageEditorCubit, ImageEditorState>(
+            builder: (context, state) {
+              return state.imagePath != null
+                  ? IconButton(
+                      onPressed: () {
+                        context.read<ImageEditorCubit>().updateImagePath(null);
+                      },
+                      icon: Icon(Icons.close))
+                  : SizedBox.shrink();
+            },
+          )
+        ],
+      ),
+      body: Container(
+        // color: Colors.red,
+        height: double.maxFinite,
+        width: double.maxFinite,
+        child: Screenshot(
+          controller: screenshotController,
+          child: Stack(
+            children: [
+              const Center(child: ImageWidget()),
+              if (enableText)
                 BlocBuilder<ImageEditorCubit, ImageEditorState>(
                   builder: (context, state) {
                     return Positioned(
@@ -76,12 +111,15 @@ class _ImageEditorState extends State<ImageEditor>
                           child: SizedBox(
                               width: MediaQuery.of(context).size.width * .3,
                               child: TextField(
+                                textAlign: TextAlign.center,
                                 onChanged: (value) {
                                   context
                                       .read<ImageEditorCubit>()
                                       .updateText(value);
                                 },
                                 decoration: InputDecoration(
+                                    alignLabelWithHint: true,
+                                    hintText: 'Caption Here',
                                     focusedBorder: UnderlineInputBorder(),
                                     border: OutlineInputBorder(
                                         borderSide: BorderSide.none)),
@@ -89,11 +127,10 @@ class _ImageEditorState extends State<ImageEditor>
                         ));
                   },
                 )
-              ],
-            ),
+            ],
           ),
         ),
-      )),
+      ),
     );
   }
 }
@@ -126,7 +163,12 @@ class _ImageWidgetState extends State<ImageWidget> {
                   onTap: () {
                     getAndSetImage();
                   },
-                  child: Text("Pick Image"),
+                  child: Container(
+                      color: Colors.tealAccent,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text("Pick Image"),
+                      )),
                 ),
               )
             : InteractiveViewer(
