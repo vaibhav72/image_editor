@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/src/widgets/container.dart';
 import 'package:flutter/src/widgets/framework.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -25,6 +27,16 @@ class _ImageEditorState extends State<ImageEditor>
   double left = 0;
   double top = 0;
   bool enableText = false;
+  double scaleFactor = 1;
+  @override
+  void initState() {
+    SchedulerBinding.instance.addPostFrameCallback((timeStamp) {
+      setState(() {
+        top = MediaQuery.of(context).size.height * .4;
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -32,7 +44,7 @@ class _ImageEditorState extends State<ImageEditor>
         builder: (context, state) {
           if (state.imagePath != null) {
             return FloatingActionButton(
-                child: Icon(Icons.share),
+                child: const Icon(Icons.share),
                 onPressed: () async {
                   FocusScope.of(context).requestFocus(FocusNode());
 
@@ -43,31 +55,13 @@ class _ImageEditorState extends State<ImageEditor>
                   });
                 });
           }
-          return SizedBox();
+          return const SizedBox();
         },
       ),
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        title: Text("Editor"),
+        title: const Text("Editor"),
         actions: [
-          IconButton(
-              onPressed: () {
-                setState(() {
-                  enableText = !enableText;
-                });
-              },
-              icon: enableText
-                  ? CircleAvatar(
-                      backgroundColor: Colors.white,
-                      child: Icon(
-                        Icons.abc_rounded,
-                        color: Colors.teal,
-                      ),
-                    )
-                  : Icon(
-                      Icons.abc_rounded,
-                      size: 30,
-                    )),
           BlocBuilder<ImageEditorCubit, ImageEditorState>(
             builder: (context, state) {
               return state.imagePath != null
@@ -75,21 +69,24 @@ class _ImageEditorState extends State<ImageEditor>
                       onPressed: () {
                         context.read<ImageEditorCubit>().updateImagePath(null);
                       },
-                      icon: Icon(Icons.close))
-                  : SizedBox.shrink();
+                      icon: const Icon(Icons.close))
+                  : const SizedBox.shrink();
             },
           )
         ],
       ),
       body: Container(
-        // color: Colors.red,
         height: double.maxFinite,
         width: double.maxFinite,
         child: Screenshot(
           controller: screenshotController,
           child: Stack(
             children: [
-              const Center(child: ImageWidget()),
+              Center(child: ImageWidget(showTextField: () {
+                setState(() {
+                  if (!enableText) enableText = true;
+                });
+              })),
               if (enableText)
                 BlocBuilder<ImageEditorCubit, ImageEditorState>(
                   builder: (context, state) {
@@ -97,33 +94,37 @@ class _ImageEditorState extends State<ImageEditor>
                         top: top,
                         left: left,
                         child: GestureDetector(
-                          onPanUpdate: (details) {
-                            // print("local-${details.localPosition}");
-                            // print("global -${details.globalPosition}");
-                            top += details.delta.dy;
-                            left += details.delta.dx;
+                          onScaleUpdate: (details) {
+                            top += details.focalPointDelta.dy;
+                            left += details.focalPointDelta.dx;
+                            if (details.scale != 1) scaleFactor = details.scale;
+
                             setState(() {});
-                            context.read<ImageEditorCubit>().updateTextPosition(
-                                Offset(
-                                    state.textPosition!.dx + details.delta.dx,
-                                    state.textPosition!.dy + details.delta.dy));
                           },
-                          child: SizedBox(
-                              width: MediaQuery.of(context).size.width * .3,
-                              child: TextField(
-                                textAlign: TextAlign.center,
-                                onChanged: (value) {
-                                  context
-                                      .read<ImageEditorCubit>()
-                                      .updateText(value);
-                                },
-                                decoration: InputDecoration(
-                                    alignLabelWithHint: true,
-                                    hintText: 'Caption Here',
-                                    focusedBorder: UnderlineInputBorder(),
-                                    border: OutlineInputBorder(
-                                        borderSide: BorderSide.none)),
-                              )),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: SizedBox(
+                                width: MediaQuery.of(context).size.width,
+                                child: MediaQuery(
+                                  data: MediaQuery.of(context)
+                                      .copyWith(textScaleFactor: scaleFactor),
+                                  child: TextField(
+                                    maxLines: null,
+                                    textAlign: TextAlign.center,
+                                    onChanged: (value) {
+                                      context
+                                          .read<ImageEditorCubit>()
+                                          .updateText(value);
+                                    },
+                                    decoration: const InputDecoration(
+                                        alignLabelWithHint: true,
+                                        hintText: 'Caption Here',
+                                        focusedBorder: UnderlineInputBorder(),
+                                        border: OutlineInputBorder(
+                                            borderSide: BorderSide.none)),
+                                  ),
+                                )),
+                          ),
                         ));
                   },
                 )
@@ -136,10 +137,11 @@ class _ImageEditorState extends State<ImageEditor>
 }
 
 class ImageWidget extends StatefulWidget {
-  const ImageWidget({
+  ImageWidget({
     Key? key,
+    required this.showTextField,
   }) : super(key: key);
-
+  VoidCallback showTextField;
   @override
   State<ImageWidget> createState() => _ImageWidgetState();
 }
@@ -165,15 +167,16 @@ class _ImageWidgetState extends State<ImageWidget> {
                   },
                   child: Container(
                       color: Colors.tealAccent,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
+                      child: const Padding(
+                        padding: EdgeInsets.all(8.0),
                         child: Text("Pick Image"),
                       )),
                 ),
               )
-            : InteractiveViewer(
-                panEnabled: false,
-                child: Image(image: FileImage(File(state.imagePath!))));
+            : GestureDetector(
+                onTap: widget.showTextField,
+                child: Image(image: FileImage(File(state.imagePath!))),
+              );
       },
     );
   }
