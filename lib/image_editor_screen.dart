@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 import 'dart:ui';
 
@@ -28,14 +29,6 @@ class _ImageEditorState extends State<ImageEditor>
   double top = 0;
   bool enableText = false;
   double scaleFactor = 1;
-  @override
-  void initState() {
-    SchedulerBinding.instance.addPostFrameCallback((timeStamp) {
-      setState(() {
-        top = MediaQuery.of(context).size.height * .4;
-      });
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,12 +55,32 @@ class _ImageEditorState extends State<ImageEditor>
       appBar: AppBar(
         title: const Text("Editor"),
         actions: [
+          if (enableText)
+            IconButton(
+                onPressed: () {
+                  setState(() {
+                    enableText = !enableText;
+                  });
+                },
+                icon: enableText
+                    ? CircleAvatar(
+                        backgroundColor: Colors.white,
+                        child: Icon(
+                          Icons.abc_rounded,
+                          color: Colors.teal,
+                        ),
+                      )
+                    : Icon(
+                        Icons.abc_rounded,
+                        size: 30,
+                      )),
           BlocBuilder<ImageEditorCubit, ImageEditorState>(
             builder: (context, state) {
               return state.imagePath != null
                   ? IconButton(
                       onPressed: () {
                         context.read<ImageEditorCubit>().updateImagePath(null);
+                        context.read<ImageEditorCubit>().updateText('');
                       },
                       icon: const Icon(Icons.close))
                   : const SizedBox.shrink();
@@ -82,9 +95,15 @@ class _ImageEditorState extends State<ImageEditor>
           controller: screenshotController,
           child: Stack(
             children: [
-              Center(child: ImageWidget(showTextField: () {
+              Center(
+                  child: ImageWidget(showTextField: (TapDownDetails details) {
+                log(details.globalPosition.toString());
                 setState(() {
-                  if (!enableText) enableText = true;
+                  if (!enableText) {
+                    enableText = true;
+                    top = details.localPosition.dy;
+                    left = details.localPosition.dx;
+                  }
                 });
               })),
               if (enableText)
@@ -103,27 +122,34 @@ class _ImageEditorState extends State<ImageEditor>
                           },
                           child: Padding(
                             padding: const EdgeInsets.all(8.0),
-                            child: SizedBox(
+                            child: MediaQuery(
+                              data: MediaQuery.of(context).copyWith(
+                                  textScaleFactor: scaleFactor,
+                                  size: Size(
+                                    MediaQuery.of(context).size.width *
+                                        scaleFactor,
+                                    MediaQuery.of(context).size.height,
+                                  )),
+                              child: SizedBox(
                                 width: MediaQuery.of(context).size.width,
-                                child: MediaQuery(
-                                  data: MediaQuery.of(context)
-                                      .copyWith(textScaleFactor: scaleFactor),
-                                  child: TextField(
-                                    maxLines: null,
-                                    textAlign: TextAlign.center,
-                                    onChanged: (value) {
-                                      context
-                                          .read<ImageEditorCubit>()
-                                          .updateText(value);
-                                    },
-                                    decoration: const InputDecoration(
-                                        alignLabelWithHint: true,
-                                        hintText: 'Caption Here',
-                                        focusedBorder: UnderlineInputBorder(),
-                                        border: OutlineInputBorder(
-                                            borderSide: BorderSide.none)),
-                                  ),
-                                )),
+                                child: TextField(
+                                  maxLines: null,
+                                  textAlign: TextAlign.start,
+                                  onChanged: (value) {
+                                    context
+                                        .read<ImageEditorCubit>()
+                                        .updateText(value);
+                                  },
+                                  decoration: const InputDecoration(
+                                      // alignLabelWithHint: true,
+
+                                      hintText: 'Caption Here',
+                                      // focusedBorder: UnderlineInputBorder(),
+                                      border: OutlineInputBorder(
+                                          borderSide: BorderSide.none)),
+                                ),
+                              ),
+                            ),
                           ),
                         ));
                   },
@@ -141,7 +167,7 @@ class ImageWidget extends StatefulWidget {
     Key? key,
     required this.showTextField,
   }) : super(key: key);
-  VoidCallback showTextField;
+  Function(TapDownDetails)? showTextField;
   @override
   State<ImageWidget> createState() => _ImageWidgetState();
 }
@@ -174,7 +200,7 @@ class _ImageWidgetState extends State<ImageWidget> {
                 ),
               )
             : GestureDetector(
-                onTap: widget.showTextField,
+                onTapDown: widget.showTextField,
                 child: Image(image: FileImage(File(state.imagePath!))),
               );
       },
